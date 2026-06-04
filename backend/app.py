@@ -2,10 +2,11 @@ import uuid
 import io
 import base64
 import os
+import contextlib
 from difflib import get_close_matches
 
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai as genai_sdk
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -20,15 +21,15 @@ import matplotlib.pyplot as plt
 from forward_flow import analyze_forward_flow
 
 load_dotenv()
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+gemini_client = genai_sdk.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
 
 print("loading word2vec")
-model = api.load("word2vec-google-news-300")
+with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+    model = api.load("word2vec-google-news-300")
 print("model loaded")
 
 # initial possible words
@@ -94,7 +95,7 @@ Select the SINGLE BEST word from the list that:
 
 Respond with ONLY one word from the candidate list, nothing else. No explanation, no punctuation, just the word exactly as it appears in the list."""
 
-        response = gemini_model.generate_content(prompt)
+        response = gemini_client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         selected_word = response.text.strip()
         print(f"[GEMINI DEBUG] Gemini response: '{selected_word}'")
 

@@ -3,6 +3,6 @@ flask-cors>=4.0
 gensim>=4.3
 numpy>=1.24
 matplotlib>=3.5
-google-generativeai>=0.8
+google-genai>=1.0
 python-dotenv>=1.0
 gunicorn>=21.0
