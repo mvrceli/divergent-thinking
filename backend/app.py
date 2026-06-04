@@ -11,6 +11,7 @@ from google import genai as genai_sdk
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import gensim.downloader as api
+from gensim.models import KeyedVectors
 if os.environ.get("GENSIM_DATA_DIR"):
     api.BASE_DIR = os.environ["GENSIM_DATA_DIR"]
 import numpy as np
@@ -27,9 +28,12 @@ app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
 
-print("loading word2vec")
+print("downloading word2vec")
 with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-    model = api.load("word2vec-google-news-300")
+    model_path = api.load("word2vec-google-news-300", return_path=True)
+print("loading word2vec (top 300k words)")
+with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+    model = KeyedVectors.load_word2vec_format(model_path, binary=True, limit=300_000)
 print("model loaded")
 
 # initial possible words
