@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Association Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- start -->
+    <section id="screen-start" class="screen active">
+      <h1>Word Association Game</h1>
+      <p class="subtitle">Test your divergent thinking</p>
+      
+
+
+
+      <!-- config slides -->
+      <div id="config-slides" class="config-slides">
+        <!-- intro -->
+        <div class="config-slide active" id="slide-intro">
+          <div class="card">
+            <p>You will be shown a <strong>prompt word</strong>. Respond with a word that is
+            <strong>related</strong> to the prompt, but try to take the chain in a
+            <em>new, creative direction</em> each time.</p>
+            <p>Your response becomes the <strong>next prompt</strong>. Over <strong>20 turns</strong>,
+            build a chain of connected yet divergent associations.</p>
+            <p class="rule-note">Words must be related to the prompt (no random words!)
+            the challenge is finding <em>creative</em> connections, not obvious ones.</p>
+            <button class="btn-primary" id="btn-start-game" style="margin-top: 1.5rem;">Start Game</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+
+
+    <!-- mode selection (testing only) -->
+    <section id="screen-mode" class="screen">
+      <h1>Select Condition</h1>
+      <p class="subtitle">For testing only — in the real study this is assigned automatically</p>
+      <div class="mode-cards">
+        <div class="card mode-card">
+          <h3>AI Suggestions</h3>
+          <p>During turns 7–13, the AI will suggest semantically relevant words to guide your associations.</p>
+          <button class="btn-primary" id="btn-mode-ai">Select</button>
+        </div>
+        <div class="card mode-card">
+          <h3>Control (Random)</h3>
+          <p>During turns 7–13, a random valid word from the vocabulary will be suggested instead.</p>
+          <button class="btn-primary" id="btn-mode-control">Select</button>
+        </div>
+      </div>
+      <button class="btn-secondary" id="btn-back-to-start" style="margin-top: 1.5rem;">Back</button>
+    </section>
+
+    <!-- main game screen -->
+    <section id="screen-game" class="screen">
+      <div class="game-header">
+        <div class="stimulus-box">
+          <span class="label">Current Prompt</span>
+          <span id="stimulus-word" class="stimulus-word"></span>
+        </div>
+        <div class="turn-counter">
+          <span id="turn-display">0</span> / 20
+        </div>
+      </div>
+
+      <div id="chain-trail" class="card chain-trail hidden">
+        <h3>Word Chain</h3>
+        <div id="chain-words" class="chain-words"></div>
+      </div>
+
+      <div id="suggestion-box" class="card suggestion-box hidden">
+        <div class="suggestion-header">
+          <span class="label">AI Suggestion</span>
+          <span class="intervention-badge">Intervention Phase</span>
+        </div>
+        <p class="suggestion-instruction">
+          Try to write a word that relates to both:
+        </p>
+        <div class="suggestion-targets">
+          <div class="target previous-target">
+            <span class="target-label">Previous word:</span>
+            <span id="previous-word-display" class="target-word"></span>
+          </div>
+          <div class="target suggestion-target">
+            <span class="target-label">AI suggestion:</span>
+            <span id="suggestion-display" class="target-word highlight"></span>
+          </div>
+        </div>
+      </div>
+
+
+
+
+
+      <div class="card input-area">
+        <label for="word-input">Enter your word association:</label>
+        <div class="input-row">
+          <input type="text" id="word-input" placeholder="Type a word…" autocomplete="off" />
+          <button id="btn-submit" class="btn-primary">Submit</button>
+        </div>
+        <p id="input-error" class="error-msg"></p>
+      </div>
+
+    </section>
+
+    <!-- results -->
+    <section id="screen-results" class="screen">
+      <h1>Results</h1>
+      <div class="card">
+        <div class="result-summary" id="result-summary"></div>
+        
+        <div id="intervention-section" class="intervention-section" style="display: none;">
+          <h3>Intervention Analysis</h3>
+          <div class="intervention-grid">
+            <div class="intervention-box">
+              <span class="int-label">Before</span>
+              <span class="int-score" id="int-before">N/A</span>
+            </div>
+            <div class="intervention-box">
+              <span class="int-label">During</span>
+              <span class="int-score" id="int-during">N/A</span>
+            </div>
+            <div class="intervention-box">
+              <span class="int-label">After</span>
+              <span class="int-score" id="int-after">N/A</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="plot-card">
+          <h3>3D Word Chain</h3>
+          <div id="word-plot" class="word-plot"></div>
+        </div>
+        
+        <div class="plot-card">
+          <h3>Forward Flow Trajectory</h3>
+          <div id="forward-flow-plot" class="word-plot word-plot-large"></div>
+        </div>
+
+        <div id="result-details"></div>
+        <button id="btn-restart" class="btn-primary">Play Again</button>
+      </div>
+    </section>
+  </div>
+
+
+
+
+  
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
