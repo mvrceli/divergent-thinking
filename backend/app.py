@@ -99,7 +99,7 @@ Select the SINGLE BEST word from the list that:
 
 Respond with ONLY one word from the candidate list, nothing else. No explanation, no punctuation, just the word exactly as it appears in the list."""
 
-        response = gemini_client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        response = gemini_client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         selected_word = response.text.strip()
         print(f"[GEMINI DEBUG] Gemini response: '{selected_word}'")
 
