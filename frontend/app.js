@@ -352,7 +352,7 @@ async function showResults() {
   note.style.fontSize = "0.8rem";
   note.style.color = "var(--text-muted)";
   note.style.marginTop = "0.5rem";
-  note.textContent = "* Indicates responses during the intervention phase (turns with AI suggestions)";
+  note.textContent = "* Indicates responses during the intervention phase (turns with Suggestions)";
   resultDetails.appendChild(note);
 
   document.getElementById("survey-link").href = sessionMode === "ai" ? SURVEY_AI : SURVEY_CONTROL;
