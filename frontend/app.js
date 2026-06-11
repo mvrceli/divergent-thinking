@@ -1,8 +1,12 @@
 // base url for all api calls — empty string means same origin as the served page
 const API = "";
 
+const SURVEY_AI      = "https://vuamsterdam.eu.qualtrics.com/jfe/form/SV_25bUDTiA7tubP94";
+const SURVEY_CONTROL = "https://vuamsterdam.eu.qualtrics.com/jfe/form/SV_3VgX8DeNOKTC94a";
+
 // global session state
 let sessionId = null;
+let sessionMode = null;
 let currentPrompt = null;
 let initialStimulus = null;
 let turn = 0;
@@ -10,18 +14,26 @@ let chainWords = [];
 let interventionStart = 7;
 let interventionEnd = 13;
 let currentSuggestion = null;
+let isWaiting = false;
 
 // screen references — only one is visible at a time via the "active" class
+const screenConsent = document.getElementById("screen-consent");
 const screenStart = document.getElementById("screen-start");
-const screenMode = document.getElementById("screen-mode");
 const screenGame = document.getElementById("screen-game");
 const screenResults = document.getElementById("screen-results");
 
+// consent screen elements
+const consentCheckbox = document.getElementById("consent-checkbox");
+const btnConsentContinue = document.getElementById("btn-consent-continue");
+
+consentCheckbox.addEventListener("change", () => {
+  btnConsentContinue.disabled = !consentCheckbox.checked;
+});
+
+btnConsentContinue.addEventListener("click", () => showScreen(screenStart));
+
 // button references
 const btnStartGame = document.getElementById("btn-start-game");
-const btnModeAi = document.getElementById("btn-mode-ai");
-const btnModeControl = document.getElementById("btn-mode-control");
-const btnBackToStart = document.getElementById("btn-back-to-start");
 const btnSubmit = document.getElementById("btn-submit");
 const btnRestart = document.getElementById("btn-restart");
 
@@ -32,7 +44,6 @@ const wordInput = document.getElementById("word-input");
 const inputError = document.getElementById("input-error");
 const resultSummary = document.getElementById("result-summary");
 const resultDetails = document.getElementById("result-details");
-const wordPlot = document.getElementById("word-plot");
 const forwardFlowPlot = document.getElementById("forward-flow-plot");
 const chainTrail = document.getElementById("chain-trail");
 const chainWordsEl = document.getElementById("chain-words");
@@ -78,76 +89,6 @@ function formatScore(val) {
 
 
 
-// render the interactive 3d word chain plot using plotly
-function renderWordPlot(points) {
-  if (!wordPlot || !window.Plotly) return;
-
-  if (!points || points.length === 0) {
-    wordPlot.innerHTML = '<p class="plot-empty">No 3D word data available for this session.</p>';
-    return;
-  }
-
-  const x = points.map(p => p.x);
-  const y = points.map(p => p.y);
-  const z = points.map(p => p.z);
-  const labels = points.map(p => p.word);
-
-  // scatter trace — dots and word labels, colour shifts from cyan (early) to amber (late)
-  const scatter = {
-    type: "scatter3d",
-    mode: "markers+text",
-    x,
-    y,
-    z,
-    text: labels,
-    textposition: "top center",
-    marker: {
-      size: 6,
-      color: labels.map((_, i) => i),
-      colorscale: [[0, "#38bdf8"], [1, "#f59e0b"]],
-      opacity: 0.95,
-    },
-    line: {
-      color: "#f59e0b",
-      width: 2,
-    },
-    hovertemplate: "%{text}<br>x: %{x:.3f}<br>y: %{y:.3f}<br>z: %{z:.3f}<extra></extra>",
-  };
-
-  // line trace — draws the path connecting words in sequence
-  const path = labels.length > 1 ? [{
-    type: "scatter3d",
-    mode: "lines",
-    x,
-    y,
-    z,
-    line: { color: "rgba(245, 158, 11, 0.7)", width: 4 },
-    hoverinfo: "skip",
-    showlegend: false,
-  }] : [];
-
-  const layout = {
-    margin: { l: 0, r: 0, b: 0, t: 0 },
-    paper_bgcolor: "transparent",
-    plot_bgcolor: "transparent",
-    scene: {
-      xaxis: { title: "PC1", gridcolor: "rgba(148, 163, 184, 0.2)", color: "#cbd5e1" },
-      yaxis: { title: "PC2", gridcolor: "rgba(148, 163, 184, 0.2)", color: "#cbd5e1" },
-      zaxis: { title: "PC3", gridcolor: "rgba(148, 163, 184, 0.2)", color: "#cbd5e1" },
-      aspectmode: "cube",
-    },
-    showlegend: false,
-    font: { color: "#e2e8f0" },
-  };
-
-  // path drawn first so dots sit on top (higher zorder)
-  Plotly.newPlot(wordPlot, [...path, scatter], layout, {
-    responsive: true,
-    displaylogo: false,
-    scrollZoom: true,
-  });
-}
-
 // rebuild the breadcrumb chain trail from the current chainWords array
 function renderChain() {
   chainWordsEl.innerHTML = chainWords
@@ -162,22 +103,13 @@ function renderChain() {
 
 
 
-// navigate to mode selection screen
-btnStartGame.addEventListener("click", () => {
-  showScreen(screenMode);
-});
+// start the game — mode is assigned server-side
+async function startGame() {
+  btnStartGame.disabled = true;
 
-btnBackToStart.addEventListener("click", () => {
-  showScreen(screenStart);
-});
-
-// start the game with a chosen mode
-async function startGame(mode) {
-  btnModeAi.disabled = true;
-  btnModeControl.disabled = true;
-
-  const data = await apiPost("/api/start", { mode });
+  const data = await apiPost("/api/start", {});
   sessionId = data.session_id;
+  sessionMode = data.mode;
   currentPrompt = data.current_prompt;
   initialStimulus = data.stimulus;
   interventionStart = data.intervention_start || 7;
@@ -194,36 +126,41 @@ async function startGame(mode) {
 
   showScreen(screenGame);
   wordInput.focus();
-  btnModeAi.disabled = false;
-  btnModeControl.disabled = false;
+  btnStartGame.disabled = false;
 }
 
-btnModeAi.addEventListener("click", () => startGame("ai"));
-btnModeControl.addEventListener("click", () => startGame("control"));
+btnStartGame.addEventListener("click", () => startGame());
 
 
 
 
 // submit the current word input to the server and update the ui for the next turn
 async function submitWord() {
+  if (isWaiting) return;
   const word = wordInput.value.trim();
   if (!word) { inputError.textContent = "Please enter a word."; return; }
   inputError.textContent = "";
+  isWaiting = true;
   btnSubmit.disabled = true;
+  wordInput.disabled = true;
 
   const data = await apiPost("/api/respond", { session_id: sessionId, word });
 
   if (data.error) {
     inputError.textContent = data.error;
+    wordInput.disabled = false;
     btnSubmit.disabled = false;
+    isWaiting = false;
     return;
   }
 
   // surface rejection reason and let the user retype without advancing the turn
   if (data.rejected) {
     inputError.textContent = data.reason;
+    wordInput.disabled = false;
     wordInput.select();
     btnSubmit.disabled = false;
+    isWaiting = false;
     return;
   }
 
@@ -248,7 +185,9 @@ async function submitWord() {
   }
 
   wordInput.value = "";
+  wordInput.disabled = false;
   btnSubmit.disabled = false;
+  isWaiting = false;
 
   if (data.done) {
     showResults();
@@ -416,9 +355,9 @@ async function showResults() {
   note.textContent = "* Indicates responses during the intervention phase (turns with AI suggestions)";
   resultDetails.appendChild(note);
 
+  document.getElementById("survey-link").href = sessionMode === "ai" ? SURVEY_AI : SURVEY_CONTROL;
+
   showScreen(screenResults);
-  // defer plot render until after the screen has been painted and laid out
-  requestAnimationFrame(() => renderWordPlot(data.chain_3d));
 
   //fetch and display forward flow graph
   fetchAndDisplayForwardFlow(sessionId);
@@ -431,13 +370,6 @@ btnRestart.addEventListener("click", () => {
   initialStimulus = null;
   turn = 0;
   chainWords = [];
-  if (wordPlot) {
-    // purge releases plotly's internal listeners before clearing the element
-    if (window.Plotly) {
-      Plotly.purge(wordPlot);
-    }
-    wordPlot.innerHTML = "";
-  }
   if (forwardFlowPlot) {
     forwardFlowPlot.innerHTML = "";
   }

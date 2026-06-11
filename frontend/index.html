@@ -8,8 +8,55 @@
 </head>
 <body>
   <div id="app">
+    <!-- informed consent -->
+    <section id="screen-consent" class="screen active">
+      <h1>Informed Consent</h1>
+      <p class="subtitle">Please read carefully before continuing</p>
+      <div class="card consent-card">
+        <table class="consent-table">
+          <tbody>
+            <tr>
+              <td class="consent-num">1.</td>
+              <td>I have been given the opportunity to ask questions about the project and my participation.</td>
+            </tr>
+            <tr>
+              <td class="consent-num">2.</td>
+              <td>I voluntarily agree to participate in the project.</td>
+            </tr>
+            <tr>
+              <td class="consent-num">3.</td>
+              <td>I understand I can end my participation at any time without giving reasons.</td>
+            </tr>
+            <tr>
+              <td class="consent-num">4.</td>
+              <td>I understand that all the data obtained from my participation will remain confidential.</td>
+            </tr>
+            <tr>
+              <td class="consent-num">5.</td>
+              <td>I understand that the analyses and final results will be formatted anonymously. The researcher may present some of the findings publicly at conferences or in publications, but my identity will not be identified in the published reports.</td>
+            </tr>
+            <tr>
+              <td class="consent-num">6.</td>
+              <td>I understand that other researchers will have access to this data only if they agree to preserve the confidentiality of the data and if they agree to the terms I have specified in this form.</td>
+            </tr>
+            <tr>
+              <td class="consent-num">7.</td>
+              <td>I, along with the researcher, agree to sign and date this informed consent form.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="consent-footer">
+          <label class="consent-agree-label">
+            <input type="checkbox" id="consent-checkbox" />
+            <span>I agree to all of the above</span>
+          </label>
+          <button class="btn-primary" id="btn-consent-continue" disabled>Continue</button>
+        </div>
+      </div>
+    </section>
+
     <!-- start -->
-    <section id="screen-start" class="screen active">
+    <section id="screen-start" class="screen">
       <h1>Word Association Game</h1>
       <p class="subtitle">Test your divergent thinking</p>
       
@@ -36,25 +83,6 @@
 
 
 
-
-    <!-- mode selection (testing only) -->
-    <section id="screen-mode" class="screen">
-      <h1>Select Condition</h1>
-      <p class="subtitle">For testing only — in the real study this is assigned automatically</p>
-      <div class="mode-cards">
-        <div class="card mode-card">
-          <h3>AI Suggestions</h3>
-          <p>During turns 7–13, the AI will suggest semantically relevant words to guide your associations.</p>
-          <button class="btn-primary" id="btn-mode-ai">Select</button>
-        </div>
-        <div class="card mode-card">
-          <h3>Control (Random)</h3>
-          <p>During turns 7–13, a random valid word from the vocabulary will be suggested instead.</p>
-          <button class="btn-primary" id="btn-mode-control">Select</button>
-        </div>
-      </div>
-      <button class="btn-secondary" id="btn-back-to-start" style="margin-top: 1.5rem;">Back</button>
-    </section>
 
     <!-- main game screen -->
     <section id="screen-game" class="screen">
@@ -133,13 +161,12 @@
         </div>
 
         <div class="plot-card">
-          <h3>3D Word Chain</h3>
-          <div id="word-plot" class="word-plot"></div>
-        </div>
-        
-        <div class="plot-card">
           <h3>Forward Flow Trajectory</h3>
           <div id="forward-flow-plot" class="word-plot word-plot-large"></div>
+        </div>
+
+        <div class="survey-cta">
+          <a id="survey-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-survey">Continue to Survey →</a>
         </div>
 
         <div id="result-details"></div>
@@ -152,7 +179,6 @@
 
 
   
-  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
-  <script src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

@@ -662,3 +662,90 @@ h3 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--text-muted); }
   font-size: 1.5rem;
   font-weight: 600;
 }
+
+.survey-cta {
+  text-align: center;
+  padding: 1.25rem 0 0.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1.25rem;
+}
+
+.btn-survey {
+  display: inline-block;
+  background: var(--success);
+  color: #fff;
+  text-decoration: none;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.btn-survey:hover {
+  opacity: 0.85;
+}
+
+
+
+/* informed consent screen */
+.consent-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.consent-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.consent-table tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.consent-table tr:last-child {
+  border-bottom: none;
+}
+
+.consent-table td {
+  padding: 1rem 1.25rem;
+  vertical-align: top;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.consent-num {
+  width: 2.5rem;
+  font-weight: 700;
+  color: var(--primary-hover);
+  white-space: nowrap;
+  padding-right: 0;
+}
+
+
+.consent-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-top: 2px solid var(--primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.consent-agree-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.consent-agree-label input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}

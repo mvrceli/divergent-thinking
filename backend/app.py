@@ -3,6 +3,9 @@ import io
 import base64
 import os
 import contextlib
+import json
+import time
+from datetime import datetime, timezone
 from difflib import get_close_matches
 
 from dotenv import load_dotenv
@@ -26,6 +29,39 @@ gemini_client = genai_sdk.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
+
+
+# --- logging setup ---
+# LOG_FILE: set to /data/sessions.jsonl on Railway (with a Volume mounted at /data)
+LOG_FILE = os.environ.get("LOG_FILE", "sessions.jsonl")
+
+import logging as _logging
+
+class _JsonFormatter(_logging.Formatter):
+    def format(self, record):
+        entry = {"timestamp": datetime.now(timezone.utc).isoformat(), "level": record.levelname, "msg": record.getMessage()}
+        if hasattr(record, "data"):
+            entry.update(record.data)
+        return json.dumps(entry)
+
+_handler = _logging.StreamHandler()
+_handler.setFormatter(_JsonFormatter())
+log = _logging.getLogger("thesis")
+log.setLevel(_logging.INFO)
+log.addHandler(_handler)
+log.propagate = False
+
+
+def _write_event(event: str, data: dict):
+    """Emit one structured JSON line to stdout and append to the JSONL log file."""
+    record = {"event": event, "timestamp": datetime.now(timezone.utc).isoformat(), **data}
+    log.info(event, extra={"data": record})
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(LOG_FILE)), exist_ok=True)
+        with open(LOG_FILE, "a") as f:
+            f.write(json.dumps(record) + "\n")
+    except Exception as exc:
+        log.error(f"log write failed: {exc}")
 
 
 print("downloading word2vec")
@@ -375,42 +411,6 @@ def compute_divergence(prompt_word: str, new_word: str, all_previous: list[str])
 
 
 
-def project_chain_to_3d(words: list[str]):
-    """Project chain words into 3D using an SVD-based PCA projection."""
-    vectors = []
-    labels = []
-
-    for word in words:
-        key = normalise(word)
-        if key in model.key_to_index:
-            vectors.append(model[key])
-            labels.append(word)
-
-    if not vectors:
-        return []
-
-    matrix = np.asarray(vectors, dtype=np.float32)
-    matrix = matrix - matrix.mean(axis=0, keepdims=True)
-
-    if matrix.shape[0] == 1:
-        coords = np.zeros((1, 3), dtype=np.float32)
-    else:
-        _, _, vt = np.linalg.svd(matrix, full_matrices=False)
-        components = vt[:3]
-        coords = matrix @ components.T
-
-        if coords.shape[1] < 3:
-            coords = np.pad(coords, ((0, 0), (0, 3 - coords.shape[1])), mode="constant")
-
-    return [
-        {
-            "word": label,
-            "x": float(point[0]),
-            "y": float(point[1]),
-            "z": float(point[2]),
-        }
-        for label, point in zip(labels, coords)
-    ]
 
 
 
@@ -419,13 +419,35 @@ def project_chain_to_3d(words: list[str]):
 
 #APIS
 
+def _get_next_mode() -> str:
+    """Return the next group assignment by alternating from the last recorded session_start."""
+    try:
+        if not os.path.exists(LOG_FILE):
+            return "control"
+        last_mode = None
+        with open(LOG_FILE, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if entry.get("event") == "session_start" and entry.get("mode") in ("ai", "control"):
+                        last_mode = entry["mode"]
+                except json.JSONDecodeError:
+                    continue
+        if last_mode is None:
+            return "control"
+        return "ai" if last_mode == "control" else "control"
+    except Exception as exc:
+        log.error(f"_get_next_mode failed: {exc}")
+        return "control"
+
+
 @app.route("/api/start", methods=["POST"])
 def start_game():
-    """Start a new game session. Returns a session ID and an initial stimulus."""
-    data = request.get_json(force=True) or {}
-    mode = data.get("mode", "ai")
-    if mode not in ("ai", "control"):
-        mode = "ai"
+    """Start a new game session. Mode is auto-assigned by alternating from the last session."""
+    mode = _get_next_mode()
 
     session_id = str(uuid.uuid4())
     stimulus = str(np.random.choice(STIMULUS_WORDS))
@@ -436,7 +458,12 @@ def start_game():
         "responses": [],
         "intervention_responses": [],
         "mode": mode,
+        "start_time": time.time(),
     }
+    _write_event("session_start", {
+        "mode": mode,
+        "stimulus": stimulus,
+    })
     return jsonify({
         "session_id": session_id,
         "stimulus": stimulus,
@@ -474,6 +501,12 @@ def respond():
 
     # check that the word is in vocabulary
     if not word_in_vocab(word):
+        _write_event("response_rejected", {
+            "turn": len(session["responses"]) + 1,
+            "prompt": prompt,
+            "word": word,
+            "reason": "not_in_vocab",
+        })
         return jsonify({
             "rejected": True,
             "reason": f'"{word}" is not in the vocabulary. Try a different word.',
@@ -482,6 +515,13 @@ def respond():
     # check if word is related enough
     sim = cosine_similarity(prompt, word)
     if sim is not None and sim < MIN_RELATEDNESS:
+        _write_event("response_rejected", {
+            "turn": len(session["responses"]) + 1,
+            "prompt": prompt,
+            "word": word,
+            "reason": "too_dissimilar",
+            "similarity": round(sim, 4),
+        })
         return jsonify({
             "rejected": True,
             "reason": f'"{word}" is not related enough to "{prompt}" '
@@ -504,6 +544,16 @@ def respond():
             "turn": current_turn,
             "response": result,
         })
+
+    _write_event("response_accepted", {
+        "turn": current_turn,
+        "prompt": prompt,
+        "word": word,
+        "similarity_to_prompt": result["similarity_to_prompt"],
+        "divergence_from_prompt": result["divergence_from_prompt"],
+        "divergence_from_previous": result["divergence_from_previous"],
+        "in_intervention": in_intervention_phase,
+    })
 
     # users word becomes the next prompt
     session["chain"].append(word)
@@ -546,7 +596,6 @@ def summary(session_id: str):
 
     session = sessions[session_id]
     responses = session["responses"]
-    chain_3d = project_chain_to_3d(session["chain"])
 
     divergences = []
     for r in responses:
@@ -613,10 +662,33 @@ def summary(session_id: str):
 
 
 
+    duration = round(time.time() - session.get("start_time", time.time()), 2)
+    _write_event("session_complete", {
+        "mode": session["mode"],
+        "stimulus": session["initial_stimulus"],
+        "duration_seconds": duration,
+        "total_responses": len(responses),
+        "chain": session["chain"],
+        "avg_divergence": avg_divergence,
+        "avg_divergence_before_intervention": avg_divergence_before,
+        "avg_divergence_during_intervention": avg_divergence_during,
+        "avg_divergence_after_intervention": avg_divergence_after,
+        "responses": [
+            {
+                "turn": i + 1,
+                "prompt": r["prompt_word"],
+                "word": r["word"],
+                "similarity_to_prompt": r["similarity_to_prompt"],
+                "divergence_from_prompt": r["divergence_from_prompt"],
+                "divergence_from_previous": r["divergence_from_previous"],
+            }
+            for i, r in enumerate(responses)
+        ],
+    })
+
     return jsonify({
         "initial_stimulus": session["initial_stimulus"],
         "chain": session["chain"],
-        "chain_3d": chain_3d,
         "responses": responses,
         "avg_divergence": avg_divergence,
         "avg_divergence_before_intervention": avg_divergence_before,
@@ -707,6 +779,23 @@ def get_forward_flow(session_id: str):
         "word_summary": summary,
         "chain_length": len(chain),
     })
+
+
+@app.route("/api/export")
+def export_logs():
+    """Download the full session log file. Protect with EXPORT_KEY env var if set."""
+    export_key = os.environ.get("EXPORT_KEY")
+    if export_key and request.args.get("key") != export_key:
+        return jsonify({"error": "Unauthorized"}), 401
+    if not os.path.exists(LOG_FILE):
+        return jsonify({"error": "No log file found"}), 404
+    from flask import send_file
+    return send_file(
+        os.path.abspath(LOG_FILE),
+        mimetype="application/x-ndjson",
+        as_attachment=True,
+        download_name="sessions.jsonl",
+    )
 
 
 # serve frontend route
