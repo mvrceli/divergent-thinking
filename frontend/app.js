@@ -256,8 +256,9 @@ async function fetchAndDisplayForwardFlow(sessionId) {
 
 
 
-// show the end screen and set the survey link
+// show the end screen, log session_complete, and set the survey link
 async function showResults() {
+  await apiGet(`/api/summary/${sessionId}`);
   const surveyBase = sessionMode === "ai" ? SURVEY_AI : SURVEY_CONTROL;
   document.getElementById("survey-link").href = `${surveyBase}?game_session_id=${encodeURIComponent(sessionId)}`;
   showScreen(screenResults);

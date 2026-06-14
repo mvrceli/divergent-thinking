@@ -465,6 +465,7 @@ def start_game():
         "start_time": time.time(),
     }
     _write_event("session_start", {
+        "session_id": session_id,
         "mode": mode,
         "stimulus": stimulus,
         "consent_accepted": consent_accepted,
@@ -670,6 +671,7 @@ def summary(session_id: str):
 
     duration = round(time.time() - session.get("start_time", time.time()), 2)
     _write_event("session_complete", {
+        "session_id": session_id,
         "mode": session["mode"],
         "stimulus": session["initial_stimulus"],
         "duration_seconds": duration,
