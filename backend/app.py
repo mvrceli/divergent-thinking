@@ -447,6 +447,10 @@ def _get_next_mode() -> str:
 @app.route("/api/start", methods=["POST"])
 def start_game():
     """Start a new game session. Mode is auto-assigned by alternating from the last session."""
+    data = request.get_json(silent=True) or {}
+    consent_accepted = bool(data.get("consent_accepted", False))
+    consent_timestamp = data.get("consent_timestamp")
+
     mode = _get_next_mode()
 
     session_id = str(uuid.uuid4())
@@ -463,6 +467,8 @@ def start_game():
     _write_event("session_start", {
         "mode": mode,
         "stimulus": stimulus,
+        "consent_accepted": consent_accepted,
+        "consent_timestamp": consent_timestamp,
     })
     return jsonify({
         "session_id": session_id,
@@ -796,6 +802,19 @@ def export_logs():
         as_attachment=True,
         download_name="sessions.jsonl",
     )
+
+
+@app.route("/api/clear-logs", methods=["POST"])
+def clear_logs():
+    """Wipe the JSONL log file. Requires EXPORT_KEY if set."""
+    export_key = os.environ.get("EXPORT_KEY")
+    if export_key and request.args.get("key") != export_key:
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        open(LOG_FILE, "w").close()
+        return jsonify({"ok": True, "message": "Log file cleared."})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 
 # serve frontend route

@@ -15,6 +15,7 @@ let interventionStart = 7;
 let interventionEnd = 13;
 let currentSuggestion = null;
 let isWaiting = false;
+let consentTimestamp = null;
 
 // screen references — only one is visible at a time via the "active" class
 const screenConsent = document.getElementById("screen-consent");
@@ -30,7 +31,10 @@ consentCheckbox.addEventListener("change", () => {
   btnConsentContinue.disabled = !consentCheckbox.checked;
 });
 
-btnConsentContinue.addEventListener("click", () => showScreen(screenStart));
+btnConsentContinue.addEventListener("click", () => {
+  consentTimestamp = new Date().toISOString();
+  showScreen(screenStart);
+});
 
 // button references
 const btnStartGame = document.getElementById("btn-start-game");
@@ -42,9 +46,6 @@ const stimulusWord = document.getElementById("stimulus-word");
 const turnDisplay = document.getElementById("turn-display");
 const wordInput = document.getElementById("word-input");
 const inputError = document.getElementById("input-error");
-const resultSummary = document.getElementById("result-summary");
-const resultDetails = document.getElementById("result-details");
-const forwardFlowPlot = document.getElementById("forward-flow-plot");
 const chainTrail = document.getElementById("chain-trail");
 const chainWordsEl = document.getElementById("chain-words");
 const suggestionBox = document.getElementById("suggestion-box");
@@ -107,7 +108,7 @@ function renderChain() {
 async function startGame() {
   btnStartGame.disabled = true;
 
-  const data = await apiPost("/api/start", {});
+  const data = await apiPost("/api/start", { consent_accepted: true, consent_timestamp: consentTimestamp });
   sessionId = data.session_id;
   sessionMode = data.mode;
   currentPrompt = data.current_prompt;
@@ -255,112 +256,11 @@ async function fetchAndDisplayForwardFlow(sessionId) {
 
 
 
-// fetch the session summary and build the full results screen
+// show the end screen and set the survey link
 async function showResults() {
-  const data = await apiGet(`/api/summary/${sessionId}`);
-
-  // render chain as a visual path
-  const chainHtml = data.chain
-    .map(w => `<span class="chain-chip">${escapeHtml(w)}</span>`)
-    .join('<span class="chain-arrow">→</span>');
-
-  // show intervention section if data
-  const intSection = document.getElementById("intervention-section");
-  if (data.avg_divergence_before_intervention || data.avg_divergence_during_intervention || data.avg_divergence_after_intervention) {
-    intSection.style.display = "block";
-    document.getElementById("int-before").textContent = formatScore(data.avg_divergence_before_intervention);
-    document.getElementById("int-before").className = "int-score " + divClass(data.avg_divergence_before_intervention);
-    document.getElementById("int-during").textContent = formatScore(data.avg_divergence_during_intervention);
-    document.getElementById("int-during").className = "int-score " + divClass(data.avg_divergence_during_intervention);
-    document.getElementById("int-after").textContent = formatScore(data.avg_divergence_after_intervention);
-    document.getElementById("int-after").className = "int-score " + divClass(data.avg_divergence_after_intervention);
-  }
-
-  // build the big average divergence score display
-  const label = document.createElement("span");
-  label.className = "big-label";
-  label.textContent = "Average Divergence Score";
-
-  const score = document.createElement("span");
-  score.className = "big-score " + divClass(data.avg_divergence);
-  score.textContent = formatScore(data.avg_divergence);
-
-  const stimulusP = document.createElement("p");
-  stimulusP.style.marginTop = "0.5rem";
-  stimulusP.style.color = "var(--text-muted)";
-  stimulusP.innerHTML = "Starting word: <strong>" + escapeHtml(data.initial_stimulus) + "</strong>";
-
-  const chainDiv = document.createElement("div");
-  chainDiv.className = "chain-summary";
-  chainDiv.innerHTML = chainHtml;
-
-  resultSummary.innerHTML = "";
-  resultSummary.appendChild(label);
-  resultSummary.appendChild(score);
-  resultSummary.appendChild(stimulusP);
-  resultSummary.appendChild(chainDiv);
-
-  // build the per-turn results table
-  const table = document.createElement("table");
-  table.className = "result-table";
-
-  const thead = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-  const headers = ["#", "Prompt", "Response", "Similarity", "Div. from Prompt", "Div. from All"];
-  headers.forEach(h => {
-    const th = document.createElement("th");
-    th.textContent = h;
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-  data.responses.forEach((r, i) => {
-    const turnNum = i + 1;
-    const isIntervention = turnNum >= data.intervention_start && turnNum <= data.intervention_end;
-    const row = document.createElement("tr");
-    if (isIntervention) {
-      row.style.background = "rgba(245, 158, 11, 0.03)";
-    }
-
-    const cells = [
-      turnNum + (isIntervention ? " *" : ""),
-      escapeHtml(r.prompt_word),
-      escapeHtml(r.word),
-      formatScore(r.similarity_to_prompt),
-      formatScore(r.divergence_from_prompt),
-      formatScore(r.divergence_from_previous)
-    ];
-
-    cells.forEach((cell, idx) => {
-      const td = document.createElement("td");
-      if (idx === 4 || idx === 5) {
-        td.className = divClass(idx === 4 ? r.divergence_from_prompt : r.divergence_from_previous);
-      }
-      td.textContent = cell;
-      row.appendChild(td);
-    });
-    tbody.appendChild(row);
-  });
-  table.appendChild(tbody);
-
-  resultDetails.innerHTML = "";
-  resultDetails.appendChild(table);
-
-  const note = document.createElement("p");
-  note.style.fontSize = "0.8rem";
-  note.style.color = "var(--text-muted)";
-  note.style.marginTop = "0.5rem";
-  note.textContent = "* Indicates responses during the intervention phase (turns with Suggestions)";
-  resultDetails.appendChild(note);
-
-  document.getElementById("survey-link").href = sessionMode === "ai" ? SURVEY_AI : SURVEY_CONTROL;
-
+  const surveyBase = sessionMode === "ai" ? SURVEY_AI : SURVEY_CONTROL;
+  document.getElementById("survey-link").href = `${surveyBase}?game_session_id=${encodeURIComponent(sessionId)}`;
   showScreen(screenResults);
-
-  //fetch and display forward flow graph
-  fetchAndDisplayForwardFlow(sessionId);
 }
 
 // restart — reset all state and return to the start screen
@@ -370,9 +270,6 @@ btnRestart.addEventListener("click", () => {
   initialStimulus = null;
   turn = 0;
   chainWords = [];
-  if (forwardFlowPlot) {
-    forwardFlowPlot.innerHTML = "";
-  }
   showScreen(screenStart);
 });
 
