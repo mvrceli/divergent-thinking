@@ -804,7 +804,7 @@ def export_logs():
     )
 
 
-@app.route("/api/clear-logs", methods=["POST"])
+@app.route("/api/clear-logs", methods=["GET", "POST"])
 def clear_logs():
     """Wipe the JSONL log file. Requires EXPORT_KEY if set."""
     export_key = os.environ.get("EXPORT_KEY")
