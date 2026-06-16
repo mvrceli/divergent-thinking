@@ -39,7 +39,6 @@ btnConsentContinue.addEventListener("click", () => {
 // button references
 const btnStartGame = document.getElementById("btn-start-game");
 const btnSubmit = document.getElementById("btn-submit");
-const btnRestart = document.getElementById("btn-restart");
 
 // in-game display elements
 const stimulusWord = document.getElementById("stimulus-word");
@@ -264,15 +263,6 @@ async function showResults() {
   showScreen(screenResults);
 }
 
-// restart — reset all state and return to the start screen
-btnRestart.addEventListener("click", () => {
-  sessionId = null;
-  currentPrompt = null;
-  initialStimulus = null;
-  turn = 0;
-  chainWords = [];
-  showScreen(screenStart);
-});
 
 
 
