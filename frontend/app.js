@@ -1,8 +1,7 @@
-// base url for all api calls — empty string means same origin as the served page
 const API = "";
 
-const SURVEY_AI      = "https://vuamsterdam.eu.qualtrics.com/jfe/form/SV_25bUDTiA7tubP94";
-const SURVEY_CONTROL = "https://vuamsterdam.eu.qualtrics.com/jfe/form/SV_3VgX8DeNOKTC94a";
+const SURVEY_AI = "https://www.google.com";
+const SURVEY_CONTROL = "https://www.google.com";
 
 // global session state
 let sessionId = null;
@@ -17,13 +16,12 @@ let currentSuggestion = null;
 let isWaiting = false;
 let consentTimestamp = null;
 
-// screen references — only one is visible at a time via the "active" class
+// screen references, only one is visible at a time via the "active" class
 const screenConsent = document.getElementById("screen-consent");
 const screenStart = document.getElementById("screen-start");
 const screenGame = document.getElementById("screen-game");
 const screenResults = document.getElementById("screen-results");
 
-// consent screen elements
 const consentCheckbox = document.getElementById("consent-checkbox");
 const btnConsentContinue = document.getElementById("btn-consent-continue");
 
@@ -53,13 +51,15 @@ const previousWordDisplay = document.getElementById("previous-word-display");
 
 // show a screen and hide all others by toggling the "active" class
 function showScreen(screen) {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  const screens = document.querySelectorAll(".screen");
+  for (const s of screens) {
+    s.classList.remove("active");
+  }
   screen.classList.add("active");
 }
 
 
 
-// fetch helpers — thin wrappers around fetch to avoid repeating headers and json parsing
 async function apiPost(path, body) {
   const res = await fetch(`${API}${path}`, {
     method: "POST",
@@ -74,29 +74,14 @@ async function apiGet(path) {
   return res.json();
 }
 
-// map a divergence score to a css class for colour coding
-function divClass(val) {
-  if (val == null) return "";
-  if (val >= 0.75) return "div-high";
-  if (val >= 0.5) return "div-med";
-  return "div-low";
-}
-
-// format a numeric score to 4 decimal places, or "N/A" if missing
-function formatScore(val) {
-  return val != null ? val.toFixed(4) : "N/A";
-}
-
-
-
 // rebuild the breadcrumb chain trail from the current chainWords array
 function renderChain() {
-  chainWordsEl.innerHTML = chainWords
-    .map((w, i) => {
-      const cls = i === 0 ? "chain-chip chain-chip-start" : "chain-chip";
-      return `<span class="${cls}">${escapeHtml(w)}</span>`;
-    })
-    .join('<span class="chain-arrow">→</span>');
+  const chips = [];
+  for (let i = 0; i < chainWords.length; i++) {
+    const cls = i === 0 ? "chain-chip chain-chip-start" : "chain-chip";
+    chips.push(`<span class="${cls}">${escapeHtml(chainWords[i])}</span>`);
+  }
+  chainWordsEl.innerHTML = chips.join('<span class="chain-arrow">→</span>');
   chainTrail.classList.remove("hidden");
 }
 
@@ -199,7 +184,7 @@ async function submitWord() {
   }
 }
 
-// wire up submit button and enter key to submitWord
+// submit button and enter key to submitWord
 btnSubmit.addEventListener("click", submitWord);
 wordInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") submitWord();
@@ -207,50 +192,6 @@ wordInput.addEventListener("keydown", (e) => {
 
 
 
-
-// fetch the forward flow chart from the server and inject it as an inline image
-async function fetchAndDisplayForwardFlow(sessionId) {
-
-  const data = await apiGet(`/api/forward-flow/${sessionId}`);
-
-  // TODO: check error if malformed ff data
-
-  if (forwardFlowPlot && data.plot_image) {
-    const img = document.createElement("img");
-    img.src = data.plot_image;
-    img.style.width = "100%";
-    img.style.height = "auto";
-    img.style.borderRadius = "8px";
-    forwardFlowPlot.innerHTML = "";
-    forwardFlowPlot.appendChild(img);
-
-    const summary = document.createElement("div");
-    summary.style.marginTop = "1rem";
-    summary.style.padding = "0.75rem";
-    summary.style.backgroundColor = "rgba(99, 102, 241, 0.05)";
-    summary.style.borderRadius = "6px";
-    summary.style.fontSize = "0.9rem";
-
-    const scoreDiv = document.createElement("div");
-    scoreDiv.style.marginBottom = "0.5rem";
-    const scoreLabel = document.createElement("strong");
-    scoreLabel.textContent = "Overall Flow Score: ";
-    const scoreVal = document.createElement("span");
-    scoreVal.style.color = "var(--highlight)";
-    scoreVal.textContent = formatScore(data.overall_flow_score);
-    scoreDiv.appendChild(scoreLabel);
-    scoreDiv.appendChild(scoreVal);
-
-    const explainDiv = document.createElement("div");
-    explainDiv.style.fontSize = "0.8rem";
-    explainDiv.style.color = "var(--text-muted)";
-    explainDiv.textContent = "This measures how much your word choices diverge from your previous associations. Higher scores indicate greater semantic diversity.";
-
-    summary.appendChild(scoreDiv);
-    summary.appendChild(explainDiv);
-    forwardFlowPlot.appendChild(summary);
-    }
-  }
 
 
 
